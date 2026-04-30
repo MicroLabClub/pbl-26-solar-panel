@@ -1,0 +1,12 @@
+# Backend
+bin/
+obj/
+*.user
+
+# Frontend
+node_modules/
+dist/
+.vite/
+
+# OS
+.DS_Store
