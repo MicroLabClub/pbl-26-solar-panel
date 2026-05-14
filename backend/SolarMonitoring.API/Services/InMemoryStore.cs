@@ -13,7 +13,9 @@ public class InMemoryStore
 
     public InMemoryStore()
     {
-        Seed();
+        // Synthetic seed removed: controllers now read from MongoDB.
+        // The store remains as a write-through mirror for IngestionService;
+        // nothing reads it. Safe to delete once IngestionService is updated.
     }
 
     public IReadOnlyList<TelemetryReading> GetReadings(int limit = 200)

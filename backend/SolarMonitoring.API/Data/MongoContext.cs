@@ -21,4 +21,10 @@ public class MongoContext
 
     public IMongoCollection<Alert> Alerts =>
         _database.GetCollection<Alert>(_settings.AlertsCollection);
+
+    public IMongoCollection<Problem> Problems =>
+        _database.GetCollection<Problem>(_settings.ProblemsCollection);
+
+    public IMongoCollection<Installation> Installations =>
+        _database.GetCollection<Installation>(_settings.InstallationsCollection);
 }

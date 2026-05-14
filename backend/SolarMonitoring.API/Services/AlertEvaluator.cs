@@ -64,6 +64,7 @@ public class AlertEvaluator
             Code = code,
             Title = title,
             Message = msg,
-            SourceReadingId = r.Id
+            SourceReadingId = r.Id,
+            InstallationId = r.InstallationId,
         };
 }

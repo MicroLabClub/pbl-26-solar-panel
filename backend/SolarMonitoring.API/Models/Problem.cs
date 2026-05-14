@@ -1,14 +1,33 @@
+using MongoDB.Bson.Serialization.Attributes;
+
 namespace SolarMonitoring.API.Models;
 
 public class Problem
 {
+    [BsonId]
+    [BsonElement("_id")]
     public string Id { get; set; } = string.Empty;
+
+    [BsonElement("code")]
     public string Code { get; set; } = string.Empty;
+
+    [BsonElement("severity")]
+    [BsonRepresentation(MongoDB.Bson.BsonType.String)]
     public AlertSeverity Severity { get; set; }
+
+    [BsonElement("title")]
     public string Title { get; set; } = string.Empty;
+
+    [BsonElement("message")]
     public string Message { get; set; } = string.Empty;
+
+    [BsonElement("started_at")]
     public DateTime StartedAt { get; set; }
+
+    [BsonElement("ended_at")]
     public DateTime? EndedAt { get; set; }
+
+    [BsonElement("occurrences")]
     public int Occurrences { get; set; } = 1;
 }
 

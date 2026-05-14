@@ -37,4 +37,8 @@ public class Alert
 
     [BsonElement("source_reading_id")]
     public string? SourceReadingId { get; set; }
+
+    [BsonElement("installation_id")]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string? InstallationId { get; set; }
 }
