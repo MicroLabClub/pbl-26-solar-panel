@@ -8,5 +8,10 @@ node_modules/
 dist/
 .vite/
 
+# Secrets
+.env
+!.env.example
+
 # OS
 .DS_Store
+backend/SolarMonitoring.API/appsettings.Development.json

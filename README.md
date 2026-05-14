@@ -14,6 +14,95 @@ backend/SolarMonitoring.API/    ASP.NET Core 8 API
 frontend/                       React + Vite UI
 ```
 
+## MongoDB (Docker)
+
+A `docker-compose.yml` at the repo root spins up MongoDB plus `mongo-express` (a small web UI). All credentials come from `.env` — copy `.env.example` first:
+
+```bash
+cp .env.example .env
+# edit .env with real passwords
+docker compose up -d
+```
+
+On the first start (when the data volume is empty), [`mongo-init/init.js`](mongo-init/init.js) runs and:
+
+1. creates the **application user** (`MONGO_USERNAME` / `MONGO_PASSWORD` from `.env`) with `readWrite` + `dbAdmin` on `MONGO_DATABASE`
+2. creates the collections (`telemetry`, `alerts`, `predictions`, `problems`)
+3. adds indexes on `timestamp` and `acknowledged`
+
+The init script does **not** rerun on subsequent starts. To reset everything: `docker compose down -v` then `docker compose up -d`.
+
+| Service | URL / Port | Credentials |
+| --- | --- | --- |
+| MongoDB (root) | `localhost:27017` | `MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` · auth db `admin` |
+| MongoDB (app) | `localhost:27017` | `MONGO_USERNAME` / `MONGO_PASSWORD` · auth db `MONGO_DATABASE` |
+| mongo-express | <http://localhost:8081> | `MONGO_EXPRESS_USERNAME` / `MONGO_EXPRESS_PASSWORD` |
+
+The API uses the **application user** (least privilege). Connection string in [`appsettings.Development.json`](backend/SolarMonitoring.API/appsettings.Development.json):
+
+```
+mongodb://solar_user:solar_password@localhost:27017/SolarMonitoringDb
+```
+
+If you change the `.env` values, update that file too — or override via env: `MongoDb__ConnectionString=...`.
+
+```bash
+docker compose ps
+docker compose logs -f mongodb
+docker compose down       # stop (data persists)
+docker compose down -v    # stop AND wipe data + reset users
+```
+
+## MQTT ingestion pipeline (HiveMQ → Quartz → MongoDB)
+
+The Raspberry Pi publishes its inverter JSON to an MQTT broker (HiveMQ Cloud or self-hosted). The API ingests it through a two-stage pipeline:
+
+```
+Pi ─MQTT─▶ HiveMQ ─subscribe─▶ MqttSubscriberService ──queue──▶ TelemetryPersistJob ──▶ MongoDB
+                                (BackgroundService)              (Quartz, every :00)
+```
+
+| Component | Purpose | File |
+| --- | --- | --- |
+| `MqttSubscriberService` | Long-running `BackgroundService`. Holds the HiveMQ subscription open, auto-reconnects on disconnect, deserializes payloads, drops them into the queue. | [Services/MqttSubscriberService.cs](backend/SolarMonitoring.API/Services/MqttSubscriberService.cs) |
+| `MqttMessageQueue` | Bounded `Channel<TelemetryReading>` (cap 10 000, drops oldest if full). Decouples receive rate from DB write rate. | [Services/MqttMessageQueue.cs](backend/SolarMonitoring.API/Services/MqttMessageQueue.cs) |
+| `TelemetryPersistJob` | Quartz job. Default cron `0 * * * * ?` (every minute on `:00`). Drains the queue, batches one `InsertMany` to Mongo, runs the alert evaluator. | [Jobs/TelemetryPersistJob.cs](backend/SolarMonitoring.API/Jobs/TelemetryPersistJob.cs) |
+| `TelemetryIngestionService` | Single ingest path used by both the Quartz job and the HTTP `POST /api/telemetry` endpoint. Writes to Mongo + mirrors into the in-memory store + raises alerts. | [Services/TelemetryIngestionService.cs](backend/SolarMonitoring.API/Services/TelemetryIngestionService.cs) |
+
+### Configuration
+
+`appsettings.json` (overridable via `Mqtt__*` env vars in `.env`):
+
+```jsonc
+"Mqtt": {
+  "Host": "broker.hivemq.com",
+  "Port": 8883,            // 8883 = TLS, 1883 = plain
+  "UseTls": true,
+  "Username": "",          // leave blank for the public HiveMQ test broker
+  "Password": "",
+  "ClientId": "solar-monitoring-api",
+  "Topic": "solar/+/telemetry",  // wildcard matches solar/<deviceId>/telemetry
+  "PersistCron": "0 * * * * ?"   // Quartz cron — every minute on :00
+}
+```
+
+Quartz cron format is `sec min hour day mon dow [year]`. Examples:
+- `0 * * * * ?` — every minute on the 0th second
+- `0 */5 * * * ?` — every 5 minutes
+- `*/15 * * * * ?` — every 15 seconds (for testing)
+
+### Pi-side publish example
+
+The device should publish the existing JSON payload to the topic with a per-device ID:
+
+```bash
+mosquitto_pub -h broker.hivemq.com -p 8883 --capath /etc/ssl/certs/ \
+  -t "solar/pi-01/telemetry" \
+  -m '{"timestamp":"2026-04-30T14:30:22Z","source":"mpp-solar","data":{...}}'
+```
+
+Watch the API logs — you should see `MQTT connected` on startup, then `TelemetryPersistJob persisted N readings` every minute when messages arrive.
+
 ## Backend
 
 ```bash
