@@ -7,4 +7,6 @@ public class MongoDbSettings
     public string TelemetryCollection { get; set; } = "telemetry";
     public string AlertsCollection { get; set; } = "alerts";
     public string PredictionsCollection { get; set; } = "predictions";
+    public string ProblemsCollection { get; set; } = "problems";
+    public string InstallationsCollection { get; set; } = "installations";
 }
