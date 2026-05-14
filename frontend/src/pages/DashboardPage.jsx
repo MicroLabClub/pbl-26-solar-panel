@@ -1,21 +1,41 @@
+import { useState } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../services/api';
 import StatTile from '../components/StatTile';
 import PowerChart from '../components/PowerChart';
+import BatteryChart from '../components/BatteryChart';
 import SystemTable from '../components/SystemTable';
+import { useInstallation } from '../context/InstallationContext';
 
 export default function DashboardPage() {
-  const summary = usePolling(api.summary, 5000);
-  const recent = usePolling(() => api.recent(144), 10000);
+  const { selectedId, selected } = useInstallation();
+
+  const summary = usePolling(() => api.summary(selectedId), 5000, [selectedId]);
+  const latestRow = usePolling(() => api.recent(1, selectedId), 10000, [selectedId]);
+
+  const [powerHours, setPowerHours] = useState(12);
+  const [batteryHours, setBatteryHours] = useState(12);
+  const powerSeries = usePolling(
+    () => api.series(powerHours, selectedId),
+    10000,
+    [selectedId, powerHours]
+  );
+  const batterySeries = usePolling(
+    () => api.series(batteryHours, selectedId),
+    10000,
+    [selectedId, batteryHours]
+  );
 
   const s = summary.data ?? {};
-  const latest = recent.data?.[0];
+  const latest = latestRow.data?.[0];
 
   return (
     <div className="page">
       <div className="page__header">
         <h2>Dashboard</h2>
-        <span className="page__sub">Live operating data from the inverter</span>
+        <span className="page__sub">
+          Live operating data {selected ? `· ${selected.name}` : ''}
+        </span>
       </div>
 
       <section className="tiles">
@@ -62,7 +82,16 @@ export default function DashboardPage() {
 
       <section className="grid">
         <div className="grid__main">
-          {recent.data && <PowerChart readings={recent.data} />}
+          <PowerChart
+            series={powerSeries.data ?? []}
+            hours={powerHours}
+            onRangeChange={setPowerHours}
+          />
+          <BatteryChart
+            series={batterySeries.data ?? []}
+            hours={batteryHours}
+            onRangeChange={setBatteryHours}
+          />
         </div>
         <div className="grid__side">
           <SystemTable latest={latest} />

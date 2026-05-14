@@ -1,5 +1,6 @@
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../services/api';
+import { useInstallation } from '../context/InstallationContext';
 
 const STATUS_LABELS = {
   ok: 'Running normally',
@@ -36,7 +37,8 @@ function fmtTime(iso) {
 }
 
 export default function AlertsPage() {
-  const checks = usePolling(api.systemChecks, 6000);
+  const { selectedId, selected } = useInstallation();
+  const checks = usePolling(() => api.systemChecks(selectedId), 6000, [selectedId]);
   const problems = usePolling(api.problems, 15000);
 
   const checkList = checks.data ?? [];
@@ -52,7 +54,9 @@ export default function AlertsPage() {
     <div className="page">
       <div className="page__header">
         <h2>Alerts</h2>
-        <span className="page__sub">System health and problem history</span>
+        <span className="page__sub">
+          System health and problem history{selected ? ` · ${selected.name}` : ''}
+        </span>
       </div>
 
       <section className="alert-summary">
