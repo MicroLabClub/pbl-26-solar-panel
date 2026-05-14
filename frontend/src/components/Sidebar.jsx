@@ -1,17 +1,24 @@
+import { useInstallation } from '../context/InstallationContext';
+
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
+  { key: 'installations', label: 'Installations', icon: '⛯' },
   { key: 'predictions', label: 'Predictions', icon: '◴' },
   { key: 'alerts', label: 'Alerts', icon: '⚠' },
 ];
 
 export default function Sidebar({ active, onChange, statusLabel, statusVariant }) {
+  const { selected, installations } = useInstallation();
+
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
         <div className="sidebar__logo">☀</div>
-        <div>
+        <div className="sidebar__brand-text">
           <div className="sidebar__title">Solar Monitor</div>
-          <div className="sidebar__sub">mpp-solar · QPIGS</div>
+          <div className="sidebar__sub" title={selected?.mqttDeviceId ?? ''}>
+            {selected ? selected.name : installations.length === 0 ? 'No installation' : 'Select installation'}
+          </div>
         </div>
       </div>
 
