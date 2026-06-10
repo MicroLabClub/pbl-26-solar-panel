@@ -39,5 +39,39 @@ services:
       mongodb:
         condition: service_healthy
 
+  api:
+    build:
+      context: ./backend/SolarMonitoring.API
+    container_name: solar-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5050}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Override the mock connection string baked into appsettings.json.
+      MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DATABASE}
+      MongoDb__DatabaseName: ${MONGO_DATABASE}
+      # MQTT broker — fill these in .env for live telemetry ingestion.
+      Mqtt__Host: ${Mqtt__Host:-}
+      Mqtt__Port: ${Mqtt__Port:-8883}
+      Mqtt__UseTls: ${Mqtt__UseTls:-true}
+      Mqtt__Username: ${Mqtt__Username:-}
+      Mqtt__Password: ${Mqtt__Password:-}
+      Mqtt__Topic: ${Mqtt__Topic:-solar/+/telemetry}
+      Mqtt__PersistCron: ${Mqtt__PersistCron:-0 * * * * ?}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    container_name: solar-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+
 volumes:
   mongo_data:

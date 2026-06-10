@@ -14,6 +14,33 @@ backend/SolarMonitoring.API/    ASP.NET Core 8 API
 frontend/                       React + Vite UI
 ```
 
+## Run everything with Docker (production-style)
+
+The whole stack — frontend, backend, and database — runs from one Compose file. The frontend is built to static files and served by **nginx**, which also reverse-proxies `/api/*` to the backend (single origin, so no CORS).
+
+```bash
+cp .env.example .env          # then edit credentials (and Mqtt__* for live ingestion)
+docker compose up -d --build
+```
+
+| Service | URL | Notes |
+| --- | --- | --- |
+| Frontend (nginx) | <http://localhost:8080> | `WEB_PORT` in `.env` |
+| Backend API | <http://localhost:5050/api> | `API_PORT` in `.env`; also reachable in-network as `http://api:8080` |
+| mongo-express | <http://localhost:8081> | DB web UI |
+
+```bash
+docker compose ps
+docker compose logs -f api
+docker compose up -d --build api   # rebuild just the backend after code changes
+docker compose down                # stop (Mongo data persists)
+docker compose down -v             # stop AND wipe the database volume
+```
+
+The backend image runs with `ASPNETCORE_ENVIRONMENT=Production`, so Swagger is disabled and the mock connection string in `appsettings.json` is overridden by `MongoDb__ConnectionString` pointing at the `mongodb` service.
+
+For local development without containers, run the backend and frontend directly — see [Backend](#backend) and [Frontend](#frontend) below.
+
 ## MongoDB (Docker)
 
 A `docker-compose.yml` at the repo root spins up MongoDB plus `mongo-express` (a small web UI). All credentials come from `.env` — copy `.env.example` first:
