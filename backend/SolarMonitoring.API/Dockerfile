@@ -21,6 +21,11 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
 
 COPY --from=build /app/publish ./
 
+# The ML correction models are written to ./models at runtime. Create it
+# owned by the non-root app user so it's writable (otherwise CreateDirectory
+# on the root-owned /app fails). Mounted as a volume in compose for persistence.
+RUN mkdir -p /app/models && chown -R $APP_UID:0 /app/models
+
 # Run as the non-root user shipped with the aspnet image.
 USER $APP_UID
 

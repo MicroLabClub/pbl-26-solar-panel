@@ -61,6 +61,9 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    volumes:
+      # Persist nightly-trained ML correction models across redeploys.
+      - models_data:/app/models
     mem_limit: 512m
 
   web:
@@ -77,3 +80,4 @@ services:
 
 volumes:
   mongo_data:
+  models_data:
