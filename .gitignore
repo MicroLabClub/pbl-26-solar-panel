@@ -15,3 +15,6 @@ dist/
 # OS
 .DS_Store
 backend/SolarMonitoring.API/appsettings.Development.json
+
+# Database dumps
+*.archive.gz

@@ -1,10 +1,23 @@
+# Production / deploy compose.
+#
+# Single public entrypoint: the `web` (nginx) container, bound to
+# 127.0.0.1:9006 as required by the microlab.club host. nginx serves the
+# SPA and reverse-proxies /api/* to the api container over the internal
+# docker network. mongodb and api are NOT published — they talk over the
+# compose network by service name.
+#
+# For local development with direct ports + Swagger + mongo-express, layer
+# the dev override on top:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
 services:
   mongodb:
     image: mongo:7
     container_name: solar-mongo
     restart: unless-stopped
-    ports:
-      - "${MONGO_PORT:-27017}:27017"
+    # Cap WiredTiger cache so Mongo stays within mem_limit on the shared,
+    # no-swap host (otherwise it sizes the cache to host RAM and gets OOM-killed).
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     environment:
       # Root admin user — created by the official image on first startup.
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
@@ -17,35 +30,18 @@ services:
     volumes:
       - mongo_data:/data/db
       - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    mem_limit: 512m
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  mongo-express:
-    image: mongo-express:1.0.2
-    container_name: solar-mongo-express
-    restart: unless-stopped
-    ports:
-      - "${MONGO_EXPRESS_PORT:-8081}:8081"
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_ROOT_USERNAME}
-      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_ROOT_PASSWORD}
-      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/?authSource=admin
-      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME}
-      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
-    depends_on:
-      mongodb:
-        condition: service_healthy
-
   api:
     build:
       context: ./backend/SolarMonitoring.API
     container_name: solar-api
     restart: unless-stopped
-    ports:
-      - "${API_PORT:-5050}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       # Override the mock connection string baked into appsettings.json.
@@ -62,16 +58,19 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    mem_limit: 512m
 
   web:
     build:
       context: ./frontend
     container_name: solar-web
     restart: unless-stopped
+    # REQUIRED by the host: bind to 127.0.0.1:9006 only. Not 9006, not 0.0.0.0.
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "127.0.0.1:9006:80"
     depends_on:
       - api
+    mem_limit: 128m
 
 volumes:
   mongo_data:
