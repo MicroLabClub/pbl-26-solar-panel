@@ -53,6 +53,9 @@ services:
       Mqtt__UseTls: ${Mqtt__UseTls:-true}
       Mqtt__Username: ${Mqtt__Username:-}
       Mqtt__Password: ${Mqtt__Password:-}
+      # Distinct per environment so a local container doesn't clash with prod
+      # on the broker (duplicate client ids cause connection flapping).
+      Mqtt__ClientId: ${Mqtt__ClientId:-solar-monitoring-api}
       Mqtt__Topic: ${Mqtt__Topic:-solar/+/telemetry}
       Mqtt__PersistCron: ${Mqtt__PersistCron:-0 * * * * ?}
     depends_on:
